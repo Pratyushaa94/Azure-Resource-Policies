@@ -155,26 +155,3 @@ az ad sp create-for-rbac --name "GitHubActions" --role contributor --output json
 4. **Infrastructure as Code**: Complete Terraform implementation
 5. **CI/CD**: Automated deployment through GitHub Actions
 6. **Variable Management**: Separation of configuration from code
-
-## Maintenance and Monitoring
-
-- Monitor blob access patterns in Azure Portal
-- Review lifecycle policy effectiveness
-- Adjust timing parameters in terraform.tfvars as needed
-- Check Azure Storage metrics for tier transitions
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-## License
-
-MIT License
-
-## Support
-
-For issues and questions, please open an issue in the GitHub repository.
