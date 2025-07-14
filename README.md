@@ -12,21 +12,21 @@
 
 ##  Project Structure
 
+```
 .
-├── main.tf                 # Main Terraform configuration
-├── variables.tf            # Input variables
-├── terraform.tfvars        # Variable values
-├── outputs.tf              # Output definitions
-├── providers.tf            # Azure provider configuration
+├── main.tf                      # Terraform resources
+├── provider.tf                  # Azure provider config
+├── variables.tf                 # Input variable declarations
+├── terraform.tfvars             # Default variable values
 ├── environments/
-│   ├── dev.tfvars          # Dev-specific vars
-│   ├── prod.tfvars         # Prod-specific vars
-│   └── backend.tf          # Remote backend config
+│   ├── dev.tfvars               # Dev-specific variables
+│   ├── prod.tfvars              # Prod-specific variables
+│   ├── uat.tfvars               # UAT-specific variables
+│   └── backend.tf               # Remote state backend config
 └── .github/
     └── workflows/
-        └── deploy.yml      # GitHub Actions CI/CD pipeline
-
----
+        └── deploy.yml           # GitHub Actions CI/CD pipeline
+```
 
 ##  Generate Azure Credentials
 
