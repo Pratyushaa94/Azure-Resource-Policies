@@ -1,157 +1,171 @@
-# Azure Storage Lifecycle Management with Terraform
+# Azure Storage Lifecycle Management with Terraform & GitHub Actions
 
-This repository demonstrates the implementation of Azure Storage Account lifecycle management policies using Terraform. The solution automatically manages data lifecycle in Azure Blob Storage, similar to AWS S3 lifecycle policies.
+##  What This Does
 
-## Overview
+- Provisions an Azure Storage Account
+- Creates a Blob Container
+- Enables Lifecycle Management (cool/archive/delete rules)
+- Automates Terraform deployment using GitHub Actions
+- Manages infrastructure state and cost efficiently
 
-The project implements automated storage management policies that:
-- Move infrequently accessed data to cooler storage tiers
-- Archive old data
-- Delete outdated data and snapshots
-- Manage blob versions
+---
 
-## Architecture
+##  Project Structure
 
-![Azure Storage Lifecycle](https://learn.microsoft.com/en-us/azure/storage/blobs/media/storage-lifecycle-management-concepts/lifecycle-management.png)
-
-### Components:
-- Azure Resource Group
-- Azure Storage Account
-- Storage Container
-- Lifecycle Management Policies
-
-## Prerequisites
-
-- Azure Subscription
-- Terraform (version >= 1.0.0)
-- Azure CLI
-- GitHub Account (for CI/CD)
-
-## Project Structure
-
-```
-Azure-Resource-Policies/
-│
-├── .github/
-│   └── workflows/
-│       └── deploy.yml      # GitHub Actions workflow
-│
+.
 ├── main.tf                 # Main Terraform configuration
-├── variables.tf            # Variable definitions
+├── variables.tf            # Input variables
 ├── terraform.tfvars        # Variable values
 ├── outputs.tf              # Output definitions
-└── providers.tf            # Provider configuration
+├── providers.tf            # Azure provider configuration
+├── environments/
+│   ├── dev.tfvars          # Dev-specific vars
+│   ├── prod.tfvars         # Prod-specific vars
+│   └── backend.tf          # Remote backend config
+└── .github/
+    └── workflows/
+        └── deploy.yml      # GitHub Actions CI/CD pipeline
+
+---
+
+##  Generate Azure Credentials
+
+```bash
+az ad sp create-for-rbac   --name "GitHubActionsLifecycle"   --role Contributor   --scopes /subscriptions/$(az account show --query id -o tsv)   --sdk-auth
 ```
 
-## Lifecycle Rules Implementation
+Save the JSON output in your GitHub repo as a secret named: `AZURE_CREDENTIALS` and `INFRA_API_KEY`
 
-### Rule 1: Modification-based Lifecycle
-- Moves blobs to cool tier after 30 days of last modification
-- Moves to archive tier after 90 days
-- Deletes blobs after 365 days
-- Deletes snapshots after 30 days
-- Deletes versions after 90 days
+---
 
-### Rule 2: Access-based Lifecycle
-- Moves blobs to cool tier after 30 days of last access
-- Moves to archive tier after 90 days
-- Deletes after specified period
+## GitHub Secrets Required
 
-## Configuration Details
+| Secret Name             | Description                               |
+|-------------------------|-------------------------------------------|
+| `AZURE_CREDENTIALS`     | Entire JSON output from the SP command    |
+| `INFRACOST_API_KEY`     | Your Infracost API key                    |
 
-### Storage Account
-```hcl
-resource "azurerm_storage_account" "example" {
-  name                     = var.storage_account_name
-  resource_group_name      = var.resource_group_name
-  location                 = var.location
-  account_tier             = "Standard"
-  account_replication_type = "LRS"
-  
-  blob_properties {
-    last_access_time_enabled = true
-  }
-}
-```
 
-### Lifecycle Policy
-```hcl
-resource "azurerm_storage_management_policy" "example" {
-  storage_account_id = azurerm_storage_account.example.id
-  
-  rule {
-    name    = "rule1"
-    enabled = true
-    # ... rule configuration
-  }
-}
-```
+---
 
-## Setup Instructions
+##  Remote State Backend (environments/backend.tf)
 
-1. Clone the repository:
+| Property         | Value                  |
+|------------------|------------------------|
+| Storage Account  | prathyushastateacct    |
+| Container        | tfstate                |
+| State File Name  | lifecycle.tfstate      |
+
+---
+
+##  GitHub Actions Workflow
+
+Trigger: On push to `main`
+
+### Steps:
+1. Authenticate with Azure using secrets
+2. Validate backend state config
+3. Run `terraform init`
+4. Run `terraform plan`
+5. Generate plan and cost estimation
+6. Await approval (GitHub Environment)
+7. Apply changes
+
+---
+
+##  How to Use
+
+### 1. Clone the Repo
+
 ```bash
 git clone https://github.com/Pratyushaa94/Azure-Resource-Policies.git
 cd Azure-Resource-Policies
 ```
 
-2. Initialize Terraform:
+### 2. Edit terraform.tfvars
+
+```hcl
+resource_group_name   = "my-rg"
+storage_account_name  = "prathyushalifecycle"
+container_name        = "mycontainer"
+location              = "East US"
+cool_tier_days        = 30
+archive_tier_days     = 90
+```
+
+> `storage_account_name` must be globally unique, lowercase.
+
+### 3. Run Terraform Manually (Optional)
+
 ```bash
 terraform init
-```
-
-3. Configure Azure credentials:
-```bash
-az login
-```
-
-4. Update terraform.tfvars with your values:
-```hcl
-resource_group_name = "your-rg-name"
-storage_account_name = "yourstorageaccount"
-container_name = "your-container"
-```
-
-5. Apply the configuration:
-```bash
+terraform validate
 terraform plan
-terraform apply
+terraform apply -auto-approve
 ```
 
-## CI/CD Pipeline
+### 4. Push to GitHub (CI/CD)
 
-The repository includes GitHub Actions workflow that:
-1. Authenticates with Azure
-2. Initializes Terraform
-3. Plans changes
-4. Applies changes on merge to main
-
-### Setting up GitHub Actions:
-
-1. Create Azure Service Principal:
 ```bash
-az ad sp create-for-rbac --name "GitHubActions" --role contributor --output json
+git checkout -b feature/lifecycle-policy
+git add .
+git commit -m "Add storage lifecycle automation"
+git push -u origin feature/lifecycle-policy
 ```
 
-2. Add the output as a GitHub secret named `AZURE_CREDENTIALS`
+GitHub Actions will now:
 
-## Variables Reference
+- Authenticate
+- Plan
+- Wait for approval (optional)
+- Apply
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| resource_group_name | Name of the resource group | - |
-| storage_account_name | Name of the storage account | - |
-| container_name | Name of the storage container | - |
-| location | Azure region | "East US" |
-| account_tier | Storage account performance tier | "Standard" |
-| cool_tier_days | Days before moving to cool tier | 30 |
-| archive_tier_days | Days before moving to archive tier | 90 |
+---
 
-## Best Practices Implemented
+##  Lifecycle Rules Summary
 
-1. **Tiered Storage Management**: Automated movement between hot, cool, and archive tiers
-2. **Cost Optimization**: Automatic cleanup of unused resources
-3. **Security**: Proper access controls and private container access
-4. **Infrastructure as Code**: Complete Terraform implementation
-5. **CI/CD**: Automated deployment through GitHub Actions
-6. **Variable Management**: Separation of configuration from code
+### Rule 1: Modification-Based
+
+| Action             | Trigger (days) |
+|--------------------|----------------|
+| Cool Tier          | 30             |
+| Archive Tier       | 90             |
+| Delete Blobs       | 365            |
+| Delete Snapshots   | 30             |
+| Delete Versions    | 90             |
+
+### Rule 2: Access-Based
+
+| Action             | Trigger (days) |
+|--------------------|----------------|
+| Cool Tier          | 30 (accessed)  |
+| Archive Tier       | 90 (accessed)  |
+| Delete             | Custom         |
+
+> Enable access tracking:
+```hcl
+blob_properties {
+  last_access_time_enabled = true
+}
+```
+
+---
+
+##  Best Practices
+
+-  Secret-based authentication
+-  Automated lifecycle and cleanup
+- Cost optimization with Infracost (optional)
+-  CI/CD with GitHub Actions
+-  Infrastructure as Code using Terraform
+
+---
+
+##  Use Cases
+
+- Cold/archive blob storage
+- Data compliance and cleanup
+- Blob versioning cleanup
+- Cost-effective storage management
+
+---
